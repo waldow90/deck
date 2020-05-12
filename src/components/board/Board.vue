@@ -34,6 +34,27 @@
 					orientation="horizontal"
 					:drag-handle-selector="dragHandleSelector"
 					@drop="onDropStack">
+					<EmptyContent v-if="stacksByBoard.length === 0" icon="icon-comment">
+						No comments
+						<template #desc>
+							<form @submit.prevent="addNewStack()">
+								<h4 for="new-stack-input-main">
+									{{ t('deck', 'Add new list') }}
+								</h4>
+								<input id="new-stack-input-main"
+									v-model="newStackTitle"
+									v-focus
+									type="text"
+									class="no-close"
+									:placeholder="t('deck', 'List name')"
+									required>
+								<input v-tooltip="t('deck', 'Add new list')"
+									class="icon-confirm"
+									type="submit"
+									value="">
+							</form>
+						</template>
+					</EmptyContent>
 					<Draggable v-for="stack in stacksByBoard" :key="stack.id">
 						<Stack :stack="stack" />
 					</Draggable>
@@ -54,6 +75,7 @@ import { Container, Draggable } from 'vue-smooth-dnd'
 import { mapState, mapGetters } from 'vuex'
 import Controls from '../Controls'
 import Stack from './Stack'
+import { EmptyContent } from '@nextcloud/vue'
 
 export default {
 	name: 'Board',
@@ -62,6 +84,7 @@ export default {
 		Container,
 		Draggable,
 		Stack,
+		EmptyContent,
 	},
 	inject: [
 		'boardApi',
@@ -75,6 +98,7 @@ export default {
 	data: function() {
 		return {
 			loading: true,
+			newStackTitle: '',
 		}
 	},
 	computed: {
@@ -117,11 +141,10 @@ export default {
 			this.$store.dispatch('orderStack', { stack: this.stacksByBoard[removedIndex], removedIndex, addedIndex })
 		},
 
-		createStack() {
+		addNewStack() {
 			const newStack = {
-				title: 'FooBar',
+				title: this.newStackTitle,
 				boardId: this.id,
-				order: this.stacksByBoard().length,
 			}
 			this.$store.dispatch('createStack', newStack)
 		},
