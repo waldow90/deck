@@ -29,6 +29,7 @@ import Board from './components/board/Board'
 import Sidebar from './components/Sidebar'
 import BoardSidebar from './components/board/BoardSidebar'
 import CardSidebar from './components/card/CardSidebar'
+import Dashboards from './components/dashboards/Dashboards'
 
 Vue.use(Router)
 
@@ -115,6 +116,18 @@ export default new Router({
 						sidebar: (route) => {
 							return {
 								id: parseInt(route.params.cardId, 10),
+							}
+						},
+					},
+				},
+				{
+					path: '/dashboard/:filter',
+					name: 'dashboards',
+					component: Dashboards,
+					props: {
+						default: (route) => {
+							return {
+								filter: route.params.filter,
 							}
 						},
 					},

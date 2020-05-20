@@ -23,6 +23,17 @@
 <template>
 	<div id="app-navigation" :class="{'icon-loading': loading}">
 		<ul id="deck-navigation">
+			<AppNavigationItem
+				:title="t('deck', 'Your cards2')"
+				icon="icon-screen"
+				to="dashboards" />
+
+			<!-- <AppNavigationBoardCategory
+				id="deck-navigation-dashboard"
+				:text="t('deck', 'Your cards')"
+				:boards="dashboards"
+				:open-on-add-boards="true"
+				icon="icon-screen" /> -->
 			<AppNavigationBoardCategory
 				id="deck-navigation-all"
 				:text="t('deck', 'All boards')"
@@ -72,9 +83,9 @@ import axios from '@nextcloud/axios'
 import { mapGetters } from 'vuex'
 import ClickOutside from 'vue-click-outside'
 import { Multiselect } from '@nextcloud/vue'
-
 import AppNavigationAddBoard from './AppNavigationAddBoard'
 import AppNavigationBoardCategory from './AppNavigationBoardCategory'
+import AppNavigationItem from '@nextcloud/vue/dist/Components/AppNavigationItem'
 import { loadState } from '@nextcloud/initial-state'
 import { generateUrl, generateOcsUrl } from '@nextcloud/router'
 
@@ -86,6 +97,7 @@ export default {
 		AppNavigationAddBoard,
 		AppNavigationBoardCategory,
 		Multiselect,
+		AppNavigationItem,
 	},
 	directives: {
 		ClickOutside,
@@ -103,6 +115,15 @@ export default {
 			groupLimit: [],
 			groupLimitDisabled: true,
 			canCreate: canCreateState,
+			dashboards: [{
+				id: 1,
+				title: 'due',
+				color: '999999',
+				acl: [],
+				permissions: {
+					PERMISSION_MANAGE: false,
+				},
+			}],
 		}
 	},
 	computed: {
@@ -110,6 +131,7 @@ export default {
 			'noneArchivedBoards',
 			'archivedBoards',
 			'sharedBoards',
+			// 'dashboards',
 		]),
 		isAdmin() {
 			// eslint-disable-next-line
