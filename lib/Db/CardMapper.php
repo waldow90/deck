@@ -145,7 +145,8 @@ class CardMapper extends QBMapper implements IPermissionMapper {
 			->andWhere($qb->expr()->neq('archived', $qb->createNamedParameter(true)))
 			->andWhere($qb->expr()->eq('deleted_at', $qb->createNamedParameter(0)))
 			->andWhere($qb->expr()->gt('last_modified', $qb->createNamedParameter($since)))
-			->orderBy('order', 'id')
+			->addOrderBy('order')
+			->addOrderBy('id')
 			->setMaxResults($limit)
 			->setFirstResult($offset);
 		return $this->findEntities($qb);
