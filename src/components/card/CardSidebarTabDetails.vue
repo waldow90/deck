@@ -21,62 +21,159 @@
   -->
 
 <template>
-	<AppSidebar v-if="currentBoard && currentCard && copiedCard"
-		:title="currentCard.title"
-		:subtitle="subtitle"
-		@close="closeSidebar">
-		<template #secondary-actions>
-			<ActionButton icon="icon-external" @click.stop="showModal()">
-				{{ t('deck', 'Open in bigger view') }}
-			</ActionButton>
-		</template>
+	<div>
+		<div class="section-wrapper">
+			<div v-tooltip="t('deck', 'Tags')" class="section-label icon-tag">
+				<span class="hidden-visually">{{ t('deck', 'Tags') }}</span>
+			</div>
+			<div class="section-details">
+				<Multiselect v-model="allLabels"
+					:multiple="true"
+					:disabled="!canEdit"
+					:options="currentBoard.labels"
+					:placeholder="t('deck', 'Assign a tag to this card…')"
+					:taggable="true"
+					label="title"
+					track-by="id"
+					@select="addLabelToCard"
+					@remove="removeLabelFromCard">
+					<template #option="scope">
+						<div :style="{ backgroundColor: '#' + scope.option.color, color: textColor(scope.option.color)}" class="tag">
+							{{ scope.option.title }}
+						</div>
+					</template>
+					<template #tag="scope">
+						<div :style="{ backgroundColor: '#' + scope.option.color, color: textColor(scope.option.color)}" class="tag">
+							{{ scope.option.title }}
+						</div>
+					</template>
+				</Multiselect>
+			</div>
+		</div>
 
-		<AppSidebarTab id="details"
-			:order="0"
-			:name="t('deck', 'Details')"
-			icon="icon-home">
-			<CardSidebarTabDetails :id="id" />
-		</AppSidebarTab>
+		<div class="section-wrapper">
+			<div v-tooltip="t('deck', 'Assign to users')" class="section-label icon-group">
+				<span class="hidden-visually">{{ t('deck', 'Assign to users/groups/circles') }}</span>
+			</div>
+			<div class="section-details">
+				<Multiselect v-if="canEdit"
+					v-model="assignedUsers"
+					:multiple="true"
+					:options="formatedAssignables"
+					:user-select="true"
+					:auto-limit="false"
+					:placeholder="t('deck', 'Assign a user to this card…')"
+					label="displayname"
+					track-by="multiselectKey"
+					@select="assignUserToCard"
+					@remove="removeUserFromCard">
+					<template #tag="scope">
+						<div class="avatarlist--inline">
+							<Avatar :user="scope.option.uid"
+								:display-name="scope.option.displayname"
+								:size="24"
+								:is-no-user="scope.option.isNoUser"
+								:disable-menu="true" />
+						</div>
+					</template>
+				</Multiselect>
+				<div v-else class="avatar-list--readonly">
+					<Avatar v-for="option in currentCard.assignedUsers"
+						:key="option.primaryKey"
+						:user="option.participant.uid"
+						:display-name="option.participant.displayname"
+						:is-no-user="scope.option.isNoUser"
+						:size="32" />
+				</div>
+			</div>
+		</div>
 
-		<AppSidebarTab id="attachments"
-			:order="1"
-			:name="t('deck', 'Attachments')"
-			icon="icon-attach">
-			<CardSidebarTabAttachments :card="currentCard" />
-		</AppSidebarTab>
+		<div class="section-wrapper">
+			<div v-tooltip="t('deck', 'Due date')" class="section-label icon-calendar-dark">
+				<span class="hidden-visually">{{ t('deck', 'Due date') }}</span>
+			</div>
+			<div class="section-details">
+				<DatetimePicker v-model="duedate"
+					:placeholder="t('deck', 'Set a due date')"
+					type="datetime"
+					:minute-step="5"
+					:show-second="false"
+					:format="format"
+					:disabled="saving || !canEdit"
+					confirm />
+				<Actions v-if="canEdit">
+					<ActionButton v-if="copiedCard.duedate" icon="icon-delete" @click="removeDue()">
+						{{ t('deck', 'Remove due date') }}
+					</ActionButton>
+				</Actions>
+			</div>
+		</div>
 
-		<AppSidebarTab v-if="hasComments"
-			id="comments"
-			:order="2"
-			:name="t('deck', 'Comments')"
-			icon="icon-comment">
-			<CardSidebarTabComments :card="currentCard" />
-		</AppSidebarTab>
+		<div class="section-wrapper">
+			<CollectionList v-if="currentCard.id"
+				:id="`${currentCard.id}`"
+				:name="currentCard.title"
+				type="deck-card" />
+		</div>
 
-		<AppSidebarTab v-if="hasActivity"
-			id="timeline"
-			:order="3"
-			:name="t('deck', 'Timeline')"
-			icon="icon-activity">
-			<CardSidebarTabActivity :card="currentCard" />
-		</AppSidebarTab>
-	</AppSidebar>
+		<h5>
+			{{ t('deck', 'Description') }}
+			<span v-if="copiedCard.descriptionLastEdit && !descriptionSaving">{{ t('deck', '(Unsaved)') }}</span>
+			<span v-if="descriptionSaving">{{ t('deck', '(Saving…)') }}</span>
+			<a v-tooltip="t('deck', 'Formatting help')"
+				href="https://deck.readthedocs.io/en/latest/Markdown/"
+				target="_blank"
+				class="icon icon-info" />
+			<Actions v-if="canEdit">
+				<ActionButton v-if="!descriptionEditing" icon="icon-rename" @click="showEditor()">
+					{{ t('deck', 'Edit description') }}
+				</ActionButton>
+				<ActionButton v-else icon="icon-toggle" @click="hideEditor()">
+					{{ t('deck', 'View description') }}
+				</ActionButton>
+			</Actions>
+			<Actions v-if="canEdit">
+				<ActionButton v-if="descriptionEditing" icon="icon-attach" @click="showAttachmentModal()">
+					{{ t('deck', 'Add Attachment') }}
+				</ActionButton>
+			</Actions>
+		</h5>
+
+		<div v-if="!descriptionEditing"
+			id="description-preview"
+			@click="clickedPreview"
+			v-html="renderedDescription" />
+		<VueEasymde v-else
+			:key="copiedCard.id"
+			ref="markdownEditor"
+			v-model="copiedCard.description"
+			:configs="mdeConfig"
+			@input="updateDescription"
+			@blur="saveDescription" />
+
+		<Modal v-if="modalShow" :title="t('deck', 'Choose attachment')" @close="modalShow=false">
+			<div class="modal__content">
+				<h3>{{ t('deck', 'Choose attachment') }}</h3>
+				<AttachmentList
+					:card-id="currentCard.id"
+					:selectable="true"
+					@selectAttachment="addAttachment" />
+			</div>
+		</Modal>
+	</div>
 </template>
 
 <script>
-import { ActionButton, AppSidebar, AppSidebarTab } from '@nextcloud/vue'
+import { Avatar, Actions, ActionButton, Multiselect, DatetimePicker, Modal } from '@nextcloud/vue'
 import { mapState, mapGetters } from 'vuex'
 import Color from '../../mixins/color'
+import { CollectionList } from 'nextcloud-vue-collections'
 
-import CardSidebarTabAttachments from './CardSidebarTabAttachments'
-import CardSidebarTabComments from './CardSidebarTabComments'
-import CardSidebarTabActivity from './CardSidebarTabActivity'
-import CardSidebarTabDetails from './CardSidebarTabDetails'
 import MarkdownIt from 'markdown-it'
 import MarkdownItTaskLists from 'markdown-it-task-lists'
 import { formatFileSize } from '@nextcloud/files'
 import relativeDate from '../../mixins/relativeDate'
-
+import AttachmentList from './AttachmentList'
 import { generateUrl } from '@nextcloud/router'
 import { getLocale } from '@nextcloud/l10n'
 import moment from '@nextcloud/moment'
@@ -89,15 +186,18 @@ markdownIt.use(MarkdownItTaskLists, { enabled: true, label: true, labelAfter: tr
 const capabilities = window.OC.getCapabilities()
 
 export default {
-	name: 'CardSidebar',
+	name: 'CardSidebarTabDetails',
 	components: {
-		AppSidebar,
-		AppSidebarTab,
+
+		Multiselect,
+		DatetimePicker,
+		VueEasymde: () => import('vue-easymde/dist/VueEasyMDE.common'),
+		Actions,
 		ActionButton,
-		CardSidebarTabAttachments,
-		CardSidebarTabComments,
-		CardSidebarTabActivity,
-		CardSidebarTabDetails,
+		Avatar,
+		CollectionList,
+		Modal,
+		AttachmentList,
 	},
 	mixins: [Color, relativeDate],
 	props: {
@@ -130,6 +230,7 @@ export default {
 			descriptionSaving: false,
 			hasActivity: capabilities && capabilities.activity,
 			hasComments: !!OC.appswebroots['comments'],
+			modalShow: false,
 			format: {
 				stringify: this.stringify,
 				parse: this.parse,
@@ -254,7 +355,19 @@ export default {
 		hideEditor() {
 			this.descriptionEditing = false
 		},
-
+		showAttachmentModal() {
+			this.modalShow = true
+		},
+		addAttachment(attachment) {
+			const descString = this.$refs.markdownEditor.easymde.value()
+			let embed = ''
+			if (attachment.extendedData.mimetype.includes('image')) {
+				embed = '!'
+			}
+			const attachmentString = embed + '[📎 ' + attachment.data + '](' + this.attachmentUrl(attachment) + ')'
+			this.$refs.markdownEditor.easymde.value(descString + '\n' + attachmentString)
+			this.modalShow = false
+		},
 		clickedPreview(e) {
 			if (e.target.getAttribute('type') === 'checkbox') {
 				const clickedIndex = [...document.querySelector('#description-preview').querySelectorAll('input')].findIndex((li) => li.id === e.target.id)
@@ -357,9 +470,6 @@ export default {
 		},
 		parse(value) {
 			return moment(value, 'LLL', this.locale).toDate()
-		},
-		showModal() {
-			this.$store.dispatch('setCardDetailsInModal', true)
 		},
 	},
 }
@@ -491,4 +601,14 @@ export default {
 			text-decoration: underline;
 		}
 	}
+
+	.modal__content {
+		width: 25vw;
+		min-width: 250px;
+		min-height: 120px;
+		text-align: center;
+		margin: 20px 20px 60px 20px;
+		padding-bottom: 20px;
+	}
+
 </style>
