@@ -46,6 +46,13 @@
 		</ul>
 		<AppNavigationSettings>
 			<div>
+				<input id="toggle-modal"
+					v-model="cardDetailsInModal"
+					type="checkbox"
+					class="checkbox">
+				<label for="toggle-modal">
+					{{ t('deck', 'Use modal card view') }}
+				</label>
 				<Multiselect v-model="groupLimit"
 					:class="{'icon-loading-small': groupLimitDisabled}"
 					open-direction="bottom"
@@ -111,6 +118,14 @@ export default {
 			// eslint-disable-next-line
 			//return oc_isadmin
 			return OC.isUserAdmin()
+		},
+		cardDetailsInModal: {
+			get() {
+				return this.$store.getters.cardDetailsInModal
+			},
+			set(newValue) {
+				this.$store.dispatch('setCardDetailsInModal', newValue)
+			},
 		},
 	},
 	beforeMount() {
